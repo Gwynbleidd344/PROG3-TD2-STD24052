@@ -7,7 +7,7 @@ public class DBConnection {
     private final String USER = EnvConfig.get("JDBC_USER");
     private final String PASSWORD = EnvConfig.get("JDBC_PASSWORD");
 
-    public Connection getDBConnection() throws SQLException {
+    public Connection getDBConnection(){
         try {
             Connection connection = DriverManager.getConnection(JDBC_URL, USER, PASSWORD);
             System.out.println("Connected to PostgreSQL");

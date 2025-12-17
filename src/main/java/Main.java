@@ -3,8 +3,8 @@ import java.sql.SQLException;
 
 public class Main {
     public static void main(String[] args) throws SQLException {
-        DBConnection dbConnection = new DBConnection();
-
-        Connection connection = dbConnection.getDBConnection();
+        DataRetriever dataRetriever = new DataRetriever();
+//        System.out.println(dataRetriever.findDishById(1));
+        dataRetriever.findIngredients(1, 2).forEach(System.out::println);
     }
 }

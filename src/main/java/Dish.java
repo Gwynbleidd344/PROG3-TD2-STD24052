@@ -1,4 +1,5 @@
 import java.util.List;
+import java.util.Objects;
 
 public class Dish {
     private int id;
@@ -51,5 +52,27 @@ public class Dish {
             price += ingredient.getPrice();
         }
         return price;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        Dish dish = (Dish) o;
+        return id == dish.id && Objects.equals(name, dish.name) && dishType == dish.dishType && Objects.equals(ingredients, dish.ingredients);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, name, dishType, ingredients);
+    }
+
+    @Override
+    public String toString() {
+        return "Dish{" +
+                "id=" + id +
+                ", name='" + name + '\'' +
+                ", dishType=" + dishType +
+                ", ingredients=" + ingredients +
+                '}';
     }
 }
