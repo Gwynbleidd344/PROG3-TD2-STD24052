@@ -17,3 +17,11 @@ select setval(pg_get_serial_sequence('Dish','id'),
 select setval(pg_get_serial_sequence('Ingredient','id'),
        (select max(id) from Ingredient));
 
+UPDATE Dish SET price = CASE name
+                WHEN 'Salade fraîche' THEN 2000
+                WHEN 'Poulet grillé' THEN 6000
+                WHEN 'Riz au légume' THEN NULL
+                WHEN 'Gâteau au chocolat' THEN NULL
+                WHEN 'Salade de fruit' THEN NULL
+                ELSE price
+    END;

@@ -13,3 +13,5 @@ CREATE TABLE Ingredient (
     id_dish int,
     CONSTRAINT fk_id_dish foreign key (id_dish) references Dish(id)
 );
+
+ALTER TABLE Dish ADD COLUMN IF NOT EXISTS price numeric(10,2);

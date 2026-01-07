@@ -13,8 +13,7 @@ public class DBConnection {
             System.out.println("Connected to PostgreSQL");
             return connection;
         } catch (SQLException e) {
-            e.printStackTrace();
-            return null;
+            throw new RuntimeException(e);
         }
     }
 }
