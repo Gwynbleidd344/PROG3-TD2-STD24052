@@ -7,7 +7,6 @@ public class DataRetriever {
 
     public Dish findDishById(Integer id) {
         String dishSQL = "SELECT * FROM dish WHERE id = ?";
-        // The schema now shows a direct relationship from ingredient to dish via id_dish
         String ingredientsSQL = "SELECT * FROM ingredient WHERE id_dish = ?";
         Dish dish = null;
 
@@ -18,7 +17,6 @@ public class DataRetriever {
             ResultSet rsDish = dishStmt.executeQuery();
 
             if (rsDish.next()) {
-                // Using the constructor from Dish.java and setting ingredients separately
                 dish = new Dish();
                 dish.setId(rsDish.getInt("id"));
                 dish.setName(rsDish.getString("name"));
@@ -30,20 +28,19 @@ public class DataRetriever {
                     ingredientsStmt.setInt(1, id);
                     ResultSet rsIngredients = ingredientsStmt.executeQuery();
                     while (rsIngredients.next()) {
-                        // Using the correct constructor from Ingredient.java for an ingredient linked to a dish
                         ingredients.add(new Ingredient(
                                 rsIngredients.getInt("id"),
                                 rsIngredients.getString("name"),
                                 rsIngredients.getDouble("price"),
                                 CategoryEnum.valueOf(rsIngredients.getString("category")),
-                                dish // Pass the parent dish object
+                                dish
                         ));
                     }
                 }
                 dish.setIngredients(ingredients);
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new RuntimeException(e);
         }
         return dish;
     }
@@ -61,24 +58,22 @@ public class DataRetriever {
             ResultSet rs = stmt.executeQuery();
 
             while (rs.next()) {
-                // Corrected to not pass a dish, as these are unassociated ingredients
                 ingredients.add(new Ingredient(
                         rs.getInt("id"),
                         rs.getString("name"),
                         rs.getDouble("price"),
                         CategoryEnum.valueOf(rs.getString("category")),
-                        null // No associated dish in this context
+                        null
                 ));
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new RuntimeException(e);
         }
         return ingredients;
     }
 
     public List<Ingredient> createIngredients(List<Ingredient> newIngredients) {
         String checkSql = "SELECT id FROM ingredient WHERE name = ?";
-        // Corrected SQL: removed is_allergen, added price
         String insertSql = "INSERT INTO ingredient (name, price, category) VALUES (?, ?, ?)";
         Connection conn = null;
 
@@ -95,7 +90,7 @@ public class DataRetriever {
                         throw new RuntimeException("Ingredient already exists: " + ingredient.getName() + ". Operation cancelled.");
                     }
                     insertStmt.setString(1, ingredient.getName());
-                    insertStmt.setDouble(2, ingredient.getPrice()); // Added price
+                    insertStmt.setDouble(2, ingredient.getPrice());
                     insertStmt.setString(3, ingredient.getCategory().name());
                     insertStmt.addBatch();
                 }
@@ -116,7 +111,7 @@ public class DataRetriever {
                 try {
                     conn.rollback();
                 } catch (SQLException ex) {
-                    e.addSuppressed(ex);
+                    throw new RuntimeException(ex);
                 }
             }
             throw new RuntimeException("Failed to create ingredients, transaction rolled back.", e);
@@ -126,7 +121,7 @@ public class DataRetriever {
                     conn.setAutoCommit(true);
                     conn.close();
                 } catch (SQLException e) {
-                    e.printStackTrace();
+                    throw new RuntimeException(e);
                 }
             }
         }
@@ -194,17 +189,17 @@ public class DataRetriever {
                 try {
                     conn.rollback();
                 } catch (SQLException ex) {
-                    e.addSuppressed(ex);
+                    throw  new RuntimeException(ex);
                 }
             }
-            throw new RuntimeException("Failed to save dish, transaction rolled back.", e);
+            throw new RuntimeException("Failed to save dish",e);
         } finally {
             if (conn != null) {
                 try {
                     conn.setAutoCommit(true);
                     conn.close();
                 } catch (SQLException e) {
-                    e.printStackTrace(); // Corrected finally block
+                    throw new RuntimeException(e);
                 }
             }
         }
