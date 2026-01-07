@@ -60,7 +60,7 @@ public class DataRetriever {
 
     public List<Ingredient> createIngredients(List<Ingredient> newIngredients) {
         String checkIngredientExistQuery = "SELECT COUNT(*) FROM Ingredient WHERE name = ?";
-        String insertIngredientQuery = "INSERT INTO Ingredient (name, price, category) VALUES (?, ?, ?)";
+        String insertIngredientQuery = "INSERT INTO Ingredient (name, price, category) VALUES (?, ?, ?::Category)";
         Connection conn = dbConnection.getDBConnection();
         try {
             conn.setAutoCommit(false);
@@ -238,7 +238,7 @@ public class DataRetriever {
             params.add("%" + ingredientName + "%");
         }
         if (category != null) {
-            conditions.add("i.category = ?");
+            conditions.add("i.category = ?::Category");
             params.add(category.toString());
         }
         if (dishName != null && !dishName.isEmpty()) {
