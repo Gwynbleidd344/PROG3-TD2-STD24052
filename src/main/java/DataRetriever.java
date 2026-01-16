@@ -6,8 +6,10 @@ public class DataRetriever {
     DBConnection dbConnection = new DBConnection();
 
     public Dish findDishById(Integer id) {
-        String dishSQL = "SELECT * FROM dish WHERE id = ?";
-        String ingredientsSQL = "SELECT * FROM ingredient WHERE id_dish = ?";
+        String dishSQL = "SELECT id, name, dish_type, selling_price FROM dish WHERE id = ?";
+        String ingredientsSQL = "SELECT i.* FROM ingredient i " +
+                "JOIN DishIngredient di ON i.id = di.id_ingredient " +
+                "WHERE di.id_dish = ?";
         Dish dish = null;
 
         try (Connection conn = dbConnection.getDBConnection();
@@ -21,7 +23,7 @@ public class DataRetriever {
                 dish.setId(rsDish.getInt("id"));
                 dish.setName(rsDish.getString("name"));
                 dish.setDishType(DishTypeEnum.valueOf(rsDish.getString("dish_type")));
-                dish.setPrice(rsDish.getDouble("price"));
+                dish.setPrice(rsDish.getObject("selling_price") != null ? rsDish.getDouble("selling_price") : null);
 
                 List<Ingredient> ingredients = new ArrayList<>();
                 try (PreparedStatement ingredientsStmt = conn.prepareStatement(ingredientsSQL)) {
@@ -33,7 +35,7 @@ public class DataRetriever {
                                 rsIngredients.getString("name"),
                                 rsIngredients.getDouble("price"),
                                 CategoryEnum.valueOf(rsIngredients.getString("category")),
-                                dish
+                                null
                         ));
                     }
                 }
@@ -74,7 +76,7 @@ public class DataRetriever {
 
     public List<Ingredient> createIngredients(List<Ingredient> newIngredients) {
         String checkSql = "SELECT id FROM ingredient WHERE name = ?";
-        String insertSql = "INSERT INTO ingredient (name, price, category) VALUES (?, ?, ?)";
+        String insertSql = "INSERT INTO ingredient (name, price, category) VALUES (?, ?, ?::Category)";
         Connection conn = null;
 
         try {
@@ -87,7 +89,7 @@ public class DataRetriever {
                 for (Ingredient ingredient : newIngredients) {
                     checkStmt.setString(1, ingredient.getName());
                     if (checkStmt.executeQuery().next()) {
-                        throw new RuntimeException("Ingredient already exists: " + ingredient.getName() + ". Operation cancelled.");
+                        throw new RuntimeException("Ingredient already exists: " + ingredient.getName());
                     }
                     insertStmt.setString(1, ingredient.getName());
                     insertStmt.setDouble(2, ingredient.getPrice());
@@ -114,7 +116,7 @@ public class DataRetriever {
                     throw new RuntimeException(ex);
                 }
             }
-            throw new RuntimeException("Failed to create ingredients, transaction rolled back.", e);
+            throw new RuntimeException(e);
         } finally {
             if (conn != null) {
                 try {
@@ -136,11 +138,15 @@ public class DataRetriever {
             conn.setAutoCommit(false);
 
             if (dishToSave.getId() == 0) {
-                String insertDishSql = "INSERT INTO dish (name, dish_type, price) VALUES (?, ?, ?)";
+                String insertDishSql = "INSERT INTO dish (name, dish_type, selling_price) VALUES (?, ?::Dish_type, ?)";
                 try (PreparedStatement stmt = conn.prepareStatement(insertDishSql, Statement.RETURN_GENERATED_KEYS)) {
                     stmt.setString(1, dishToSave.getName());
                     stmt.setString(2, dishToSave.getDishType().name());
-                    stmt.setDouble(3, dishToSave.getPrice()); // Use setDouble for numeric/double
+                    if (dishToSave.getPrice() == null) {
+                        stmt.setNull(3, Types.NUMERIC);
+                    } else {
+                        stmt.setDouble(3, dishToSave.getPrice());
+                    }
                     stmt.executeUpdate();
 
                     try (ResultSet rs = stmt.getGeneratedKeys()) {
@@ -150,35 +156,24 @@ public class DataRetriever {
                     }
                 }
             } else {
-                String updateDishSql = "UPDATE dish SET name = ?, dish_type = ?, price = ? WHERE id = ?";
+                String updateDishSql = "UPDATE dish SET name = ?, dish_type = ?::Dish_type, selling_price = ? WHERE id = ?";
                 try (PreparedStatement stmt = conn.prepareStatement(updateDishSql)) {
                     stmt.setString(1, dishToSave.getName());
                     stmt.setString(2, dishToSave.getDishType().name());
-                    stmt.setDouble(3, dishToSave.getPrice());
+                    if (dishToSave.getPrice() == null) {
+                        stmt.setNull(3, Types.NUMERIC);
+                    } else {
+                        stmt.setDouble(3, dishToSave.getPrice());
+                    }
                     stmt.setInt(4, dishToSave.getId());
                     stmt.executeUpdate();
                 }
             }
 
-            String dissociateSql = "UPDATE ingredient SET id_dish = NULL WHERE id_dish = ?";
-            try (PreparedStatement stmt = conn.prepareStatement(dissociateSql)) {
+            String deleteRelationsSql = "DELETE FROM DishIngredient WHERE id_dish = ?";
+            try (PreparedStatement stmt = conn.prepareStatement(deleteRelationsSql)) {
                 stmt.setInt(1, dishToSave.getId());
                 stmt.executeUpdate();
-            }
-
-            if (dishToSave.getIngredients() != null && !dishToSave.getIngredients().isEmpty()) {
-                String associateSql = "UPDATE ingredient SET id_dish = ? WHERE id = ?";
-                try (PreparedStatement stmt = conn.prepareStatement(associateSql)) {
-                    for (Ingredient ingredient : dishToSave.getIngredients()) {
-                        if (ingredient.getId() == 0) {
-                            throw new SQLException("Cannot associate an unsaved ingredient.");
-                        }
-                        stmt.setInt(1, dishToSave.getId());
-                        stmt.setInt(2, ingredient.getId());
-                        stmt.addBatch();
-                    }
-                    stmt.executeBatch();
-                }
             }
 
             conn.commit();
@@ -189,10 +184,10 @@ public class DataRetriever {
                 try {
                     conn.rollback();
                 } catch (SQLException ex) {
-                    throw  new RuntimeException(ex);
+                    throw new RuntimeException(ex);
                 }
             }
-            throw new RuntimeException("Failed to save dish",e);
+            throw new RuntimeException(e);
         } finally {
             if (conn != null) {
                 try {
@@ -205,11 +200,25 @@ public class DataRetriever {
         }
     }
 
+    public void saveDishIngredient(int dishId, int ingredientId, double quantity, String unit) {
+        String sql = "INSERT INTO DishIngredient (id_dish, id_ingredient, quantity_required, unit) VALUES (?, ?, ?, ?::unit_type)";
+        try (Connection conn = dbConnection.getDBConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, dishId);
+            stmt.setInt(2, ingredientId);
+            stmt.setDouble(3, quantity);
+            stmt.setString(4, unit);
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     public List<Dish> findDishsByIngredientName(String ingredientName) {
         String sql = "SELECT DISTINCT d.id FROM dish d " +
-                     "JOIN ingredient i ON d.id = i.id_dish " +
-                     "WHERE i.name ILIKE ?";
+                "JOIN DishIngredient di ON d.id = di.id_dish " +
+                "JOIN ingredient i ON di.id_ingredient = i.id " +
+                "WHERE i.name ILIKE ?";
 
         List<Dish> dishes = new ArrayList<>();
         try (Connection conn = dbConnection.getDBConnection();
@@ -229,7 +238,7 @@ public class DataRetriever {
                 }
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new RuntimeException(e);
         }
         return dishes;
     }
@@ -237,11 +246,12 @@ public class DataRetriever {
     public List<Ingredient> findIngredientsByCriteria(String ingredientName, CategoryEnum category, String dishName, int page, int size) {
         List<Ingredient> ingredients = new ArrayList<>();
         List<Object> params = new ArrayList<>();
-        
+
         StringBuilder sql = new StringBuilder("SELECT DISTINCT i.* FROM ingredient i ");
 
         if (dishName != null && !dishName.trim().isEmpty()) {
-            sql.append("JOIN dish d ON i.id_dish = d.id ");
+            sql.append("JOIN DishIngredient di ON i.id = di.id_ingredient ");
+            sql.append("JOIN dish d ON di.id_dish = d.id ");
         }
 
         sql.append("WHERE 1=1 ");
@@ -251,7 +261,7 @@ public class DataRetriever {
             params.add("%" + ingredientName.trim() + "%");
         }
         if (category != null) {
-            sql.append("AND i.category = ? ");
+            sql.append("AND i.category = ?::Category ");
             params.add(category.name());
         }
         if (dishName != null && !dishName.trim().isEmpty()) {
@@ -265,14 +275,13 @@ public class DataRetriever {
 
         try (Connection conn = dbConnection.getDBConnection();
              PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
-            
-            for(int i = 0; i < params.size(); i++) {
+
+            for (int i = 0; i < params.size(); i++) {
                 stmt.setObject(i + 1, params.get(i));
             }
 
             ResultSet rs = stmt.executeQuery();
             while (rs.next()) {
-                // Note: The associated dish is not built here to avoid complexity
                 ingredients.add(new Ingredient(
                         rs.getInt("id"),
                         rs.getString("name"),
@@ -282,7 +291,7 @@ public class DataRetriever {
                 ));
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new RuntimeException(e);
         }
 
         return ingredients;
