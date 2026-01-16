@@ -154,7 +154,7 @@ public class DataRetriever {
                 try (PreparedStatement stmt = conn.prepareStatement(updateDishSql)) {
                     stmt.setString(1, dishToSave.getName());
                     stmt.setString(2, dishToSave.getDishType().name());
-                    stmt.setDouble(3, dishToSave.getPrice()); // Use setDouble for numeric/double
+                    stmt.setDouble(3, dishToSave.getPrice());
                     stmt.setInt(4, dishToSave.getId());
                     stmt.executeUpdate();
                 }

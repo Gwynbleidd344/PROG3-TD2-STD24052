@@ -89,7 +89,7 @@ public class Dish {
             }
         }
 
-        return this.price.doubleValue() - totalIngredientCost;
+        return this.price - totalIngredientCost;
     }
 
 
