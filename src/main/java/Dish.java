@@ -64,45 +64,28 @@ public class Dish {
         this.ingredients = ingredients;
     }
 
-    public Double getDishCost() {
-        Double price = 0.0;
-        for (Ingredient ingredient : ingredients) {
-            price += ingredient.getPrice();
-        }
-        return price;
-    }
-
     public Double getGrossMargin() {
         if (this.price == null) {
-            throw new IllegalStateException(
-                    "Impossible de calculer la marge brute : le prix de vente n'est pas encore défini."
-            );
+            throw new IllegalStateException("Impossible de calculer la marge brute : le prix de vente est nul.");
         }
 
-        double totalIngredientCost = 0.0;
+        DataRetriever dr = new DataRetriever();
+        Double cost = dr.getDishCost(this.id);
 
-        if (this.ingredients != null) {
-            for (Ingredient ingredient : this.ingredients) {
-                if (ingredient.getPrice() != null) {
-                    totalIngredientCost += ingredient.getPrice();
-                }
-            }
-        }
-
-        return this.price - totalIngredientCost;
+        return this.price - cost;
     }
-
 
     @Override
     public boolean equals(Object o) {
+        if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Dish dish = (Dish) o;
-        return id == dish.id && Objects.equals(name, dish.name) && dishType == dish.dishType && Objects.equals(ingredients, dish.ingredients);
+        return id == dish.id && Objects.equals(name, dish.name) && dishType == dish.dishType;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, name, dishType, ingredients);
+        return Objects.hash(id, name, dishType);
     }
 
     @Override
@@ -111,7 +94,7 @@ public class Dish {
                 "id=" + id +
                 ", name='" + name + '\'' +
                 ", dishType=" + dishType +
-                ", ingredients=" + ingredients +
+                ", price=" + price +
                 '}';
     }
 }
