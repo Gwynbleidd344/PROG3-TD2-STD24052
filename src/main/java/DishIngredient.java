@@ -1,20 +1,20 @@
 public class DishIngredient {
     private int id;
-    private int idDish;
+    private Dish dish;
     private Ingredient ingredient;
     private double quantityRequired;
     private UnitType unit;
 
-    public DishIngredient(int idDish, Ingredient ingredient, double quantityRequired, UnitType unit) {
-        this.idDish = idDish;
+    public DishIngredient(Dish dish, Ingredient ingredient, double quantityRequired, UnitType unit) {
+        this.dish = dish;
         this.ingredient = ingredient;
         this.quantityRequired = quantityRequired;
         this.unit = unit;
     }
 
-    public DishIngredient(int id, int idDish, Ingredient ingredient, double quantityRequired, UnitType unit) {
+    public DishIngredient(int id, Dish dish, Ingredient ingredient, double quantityRequired, UnitType unit) {
         this.id = id;
-        this.idDish = idDish;
+        this.dish = dish;
         this.ingredient = ingredient;
         this.quantityRequired = quantityRequired;
         this.unit = unit;
@@ -28,12 +28,12 @@ public class DishIngredient {
         this.id = id;
     }
 
-    public int getIdDish() {
-        return idDish;
+    public Dish getDish() {
+        return dish;
     }
 
-    public void setIdDish(int idDish) {
-        this.idDish = idDish;
+    public void setDish(Dish dish) {
+        this.dish = dish;
     }
 
     public Ingredient getIngredient() {
@@ -64,7 +64,7 @@ public class DishIngredient {
     public String toString() {
         return "DishIngredient{" +
                 "id=" + id +
-                ", idDish=" + idDish +
+                ", dish=" + dish +
                 ", ingredient=" + ingredient +
                 ", quantityRequired=" + quantityRequired +
                 ", unit=" + unit +

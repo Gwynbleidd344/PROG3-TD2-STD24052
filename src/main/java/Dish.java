@@ -80,10 +80,6 @@ public class Dish {
         this.dishIngredients = dishIngredients;
     }
 
-    /**
-     * Calculates the cost of all ingredients in this dish
-     * @return the total cost of ingredients, or 0.0 if no ingredients
-     */
     public Double getDishCost() {
         if (dishIngredients == null || dishIngredients.isEmpty()) {
             return 0.0;
@@ -94,11 +90,6 @@ public class Dish {
                 .sum();
     }
 
-    /**
-     * Calculates the gross margin (price - cost)
-     * @return the gross margin
-     * @throws RuntimeException if the selling price is not set
-     */
     public Double getGrossMargin() {
         if (price == null) {
             throw new RuntimeException("Cannot calculate gross margin: selling price is not set for dish '" + name + "'");

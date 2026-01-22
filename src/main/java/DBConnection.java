@@ -9,8 +9,8 @@ public class DBConnection {
 
     public Connection getDBConnection() {
         String jdbcUrl = dotenv.get("JDBC_URL");
-        String username = dotenv.get("USERNAME");
-        String password = dotenv.get("PASSWORD");
+        String username = dotenv.get("JDBC_USER");
+        String password = dotenv.get("JDBC_PASSWORD");
 
         if (jdbcUrl == null || username == null || password == null) {
             throw new RuntimeException("Environment variables JDBC_URL, USERNAME, or PASSWORD are not set in .env file");
