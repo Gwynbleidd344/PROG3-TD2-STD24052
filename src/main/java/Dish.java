@@ -1,70 +1,120 @@
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 public class Dish {
-    private int id;
+    private Integer id;
     private String name;
     private DishTypeEnum dishType;
-    private List<Ingredient> ingredients;
     private Double price;
+    private List<DishIngredient> dishIngredients;
 
-    public Dish() {}
+    public Dish() {
+        this.dishIngredients = new ArrayList<>();
+    }
 
-    public Dish(int id, String name, DishTypeEnum dishType, Double price, List<Ingredient> ingredients) {
+    public Dish(Integer id, String name, DishTypeEnum dishType) {
+        this.id = id;
+        this.name = name;
+        this.dishType = dishType;
+        this.dishIngredients = new ArrayList<>();
+    }
+
+    public Dish(String name, DishTypeEnum dishType) {
+        this.name = name;
+        this.dishType = dishType;
+        this.dishIngredients = new ArrayList<>();
+    }
+
+    public Dish(Integer id, String name, DishTypeEnum dishType, List<DishIngredient> dishIngredients) {
+        this.id = id;
+        this.name = name;
+        this.dishType = dishType;
+        this.dishIngredients = dishIngredients != null ? dishIngredients : new ArrayList<>();
+    }
+
+    public Dish(Integer id, String name, DishTypeEnum dishType, Double price, List<DishIngredient> dishIngredients) {
         this.id = id;
         this.name = name;
         this.dishType = dishType;
         this.price = price;
-        this.ingredients = ingredients;
+        this.dishIngredients = dishIngredients != null ? dishIngredients : new ArrayList<>();
     }
 
-    public Double getDishCost() {
-        if (ingredients == null || ingredients.isEmpty()) return 0.0;
-        return ingredients.stream()
-                .mapToDouble(i -> {
-                    if (i.getQuantity() == null) {
-                        throw new RuntimeException("Quantité manquante pour l'ingrédient: " + i.getName());
-                    }
-                    return i.getPrice() * i.getQuantity();
-                })
-                .sum();
-    }
-
-    public Double getGrossMargin() {
-        if (this.price == null) {
-            throw new RuntimeException("Le prix de vente est nul, calcul de marge impossible pour le plat : " + this.name);
-        }
-        return this.price - this.getDishCost();
-    }
-
-    public int getId() {
+    public Integer getId() {
         return id;
     }
-    public void setId(int id) {
+
+    public void setId(Integer id) {
         this.id = id;
     }
+
     public String getName() {
         return name;
     }
+
     public void setName(String name) {
         this.name = name;
     }
+
     public DishTypeEnum getDishType() {
         return dishType;
     }
+
     public void setDishType(DishTypeEnum dishType) {
         this.dishType = dishType;
     }
+
     public Double getPrice() {
         return price;
     }
+
     public void setPrice(Double price) {
         this.price = price;
     }
-    public List<Ingredient> getIngredients() {
-        return ingredients;
+
+    public List<DishIngredient> getDishIngredients() {
+        return dishIngredients;
     }
-    public void setIngredients(List<Ingredient> ingredients) {
-        this.ingredients = ingredients;
+
+    public void setDishIngredients(List<DishIngredient> dishIngredients) {
+        this.dishIngredients = dishIngredients;
+    }
+
+    /**
+     * Calculates the cost of all ingredients in this dish
+     * @return the total cost of ingredients, or 0.0 if no ingredients
+     */
+    public Double getDishCost() {
+        if (dishIngredients == null || dishIngredients.isEmpty()) {
+            return 0.0;
+        }
+
+        return dishIngredients.stream()
+                .mapToDouble(di -> di.getIngredient().getPrice() * di.getQuantityRequired())
+                .sum();
+    }
+
+    /**
+     * Calculates the gross margin (price - cost)
+     * @return the gross margin
+     * @throws RuntimeException if the selling price is not set
+     */
+    public Double getGrossMargin() {
+        if (price == null) {
+            throw new RuntimeException("Cannot calculate gross margin: selling price is not set for dish '" + name + "'");
+        }
+
+        return price - getDishCost();
+    }
+
+    @Override
+    public String toString() {
+        return "Dish{" +
+                "id=" + id +
+                ", name='" + name + '\'' +
+                ", dishType=" + dishType +
+                ", price=" + price +
+                ", dishIngredients=" + dishIngredients +
+                '}';
     }
 }
