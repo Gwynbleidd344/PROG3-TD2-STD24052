@@ -6,6 +6,10 @@ public class Order {
     private String reference;
     private Instant creationDateTime;
     private List<DishOrder> dishOrders;
+
+    public Order() {
+    }
+    
     public Order(int id, String reference, Instant creationDateTime, List<DishOrder> dishOrders) {
         this.id = id;
         this.reference = reference;
