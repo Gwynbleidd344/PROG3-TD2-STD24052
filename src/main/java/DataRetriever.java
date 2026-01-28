@@ -329,13 +329,35 @@ public class DataRetriever {
 
             for (Map.Entry<Integer, Double> entry : requiredQuantities.entrySet()) {
                 int ingredientId = entry.getKey();
-                double requiredQuantity = entry.getValue();
-                double currentStock = getCurrentStock(ingredientId, connection);
+                UnitConverter converter = new UnitConverter();
 
-                if (currentStock < requiredQuantity) {
-                    Ingredient ingredient = findIngredientById(ingredientId, connection);
-                    throw new RuntimeException("Insufficient stock for ingredient: " + ingredient.getName());
+                StockValue currentStock = getCurrentStock(ingredientId, connection);
+                UnitType stockUnit = currentStock.getUnit();
+
+                UnitType requiredUnit = ingredientUnits.get(ingredientId);
+                double requiredQuantity = entry.getValue();
+
+                Ingredient ingredient = findIngredientById(ingredientId, connection);
+
+                double requiredInStockUnit;
+                try {
+                    requiredInStockUnit = converter.convert(
+                            ingredient.getName(),
+                            requiredQuantity,
+                            requiredUnit,
+                            stockUnit
+                    );
+                } catch (RuntimeException e) {
+                    throw new RuntimeException("Cannot convert required quantity for ingredient "
+                            + ingredient.getName() + " from " + requiredUnit + " to stock unit " + stockUnit);
                 }
+
+                if (currentStock.getQuantity() < requiredInStockUnit) {
+                    throw new RuntimeException("Insufficient stock for ingredient: " + ingredient.getName()
+                            + " (need " + requiredInStockUnit + " " + stockUnit
+                            + ", have " + currentStock.getQuantity() + " " + stockUnit + ")");
+                }
+
             }
 
             String insertOrderSql = "INSERT INTO \"order\" (reference, creation_datetime) VALUES (?, ?) RETURNING id, creation_datetime";
@@ -353,7 +375,6 @@ public class DataRetriever {
                 throw new SQLException("Failed to create order, no ID obtained.");
             }
 
-            // Save dish orders
             String insertDishOrderSql = "INSERT INTO dishorder (id_order, id_dish, quantity) VALUES (?, ?, ?)";
             PreparedStatement dishOrderPs = connection.prepareStatement(insertDishOrderSql);
             for (DishOrder dishOrder : orderToSave.getDishOrders()) {
@@ -364,22 +385,32 @@ public class DataRetriever {
             }
             dishOrderPs.executeBatch();
 
-            // Update stock
             String insertStockMovementSql = "INSERT INTO stockmovement (id_ingredient, quantity, type, unit, creation_datetime) VALUES (?, ?, 'OUT', ?::unit_type, ?)";
             PreparedStatement stockMovementPs = connection.prepareStatement(insertStockMovementSql);
             for (Map.Entry<Integer, Double> entry : requiredQuantities.entrySet()) {
                 int ingredientId = entry.getKey();
-                double quantityToDecrease = entry.getValue();
-                UnitType unit = ingredientUnits.get(ingredientId);
+                double requiredQuantity = entry.getValue();
+
+                UnitType requiredUnit = ingredientUnits.get(ingredientId);
+
+                StockValue currentStock = getCurrentStock(ingredientId, connection);
+                UnitType stockUnit = currentStock.getUnit();
+
+                Ingredient ingredient = findIngredientById(ingredientId, connection);
+
+                double quantityToDecreaseInStockUnit = UnitConverter.convert(
+                        ingredient.getName(),
+                        requiredQuantity,
+                        requiredUnit,
+                        stockUnit
+                );
 
                 stockMovementPs.setInt(1, ingredientId);
-                stockMovementPs.setDouble(2, quantityToDecrease);
-                stockMovementPs.setString(3, unit.name());
+                stockMovementPs.setDouble(2, quantityToDecreaseInStockUnit);
+                stockMovementPs.setString(3, stockUnit.name());
                 stockMovementPs.setTimestamp(4, Timestamp.from(Instant.now()));
                 stockMovementPs.addBatch();
             }
-            stockMovementPs.executeBatch();
-
             connection.commit();
             return orderToSave;
         } catch (SQLException e) {
@@ -440,24 +471,41 @@ public class DataRetriever {
         return dishOrders;
     }
 
-    private double getCurrentStock(int ingredientId, Connection connection) throws SQLException {
-        double currentStock = 0;
-        String sql = "SELECT quantity, type FROM stockmovement WHERE id_ingredient = ?";
+    private StockValue getCurrentStock(int ingredientId, Connection connection) throws SQLException {
+        Double totalQuantity = 0.0;
+        UnitType unit = null;
+
+        String sql = "SELECT quantity, type, unit FROM stockmovement WHERE id_ingredient = ?";
         PreparedStatement ps = connection.prepareStatement(sql);
         ps.setInt(1, ingredientId);
+
         ResultSet rs = ps.executeQuery();
         while (rs.next()) {
             double quantity = rs.getDouble("quantity");
             String type = rs.getString("type");
+            UnitType movementUnit = UnitType.valueOf(rs.getString("unit"));
+
+            if (unit == null) {
+                unit = movementUnit;
+            } else if (unit != movementUnit) {
+                throw new RuntimeException("Stock unit mismatch for ingredientId=" + ingredientId
+                        + " (found " + unit + " and " + movementUnit + ")");
+            }
+
             if ("IN".equals(type)) {
-                currentStock += quantity;
+                totalQuantity += quantity;
             } else if ("OUT".equals(type)) {
-                currentStock -= quantity;
+                totalQuantity -= quantity;
             }
         }
-        return currentStock;
+
+        if (unit == null) {
+            unit = UnitType.KG;
+        }
+        return new StockValue(totalQuantity, unit);
     }
-    
+
+
     private List<DishIngredient> findDishIngredientsByDishId(Integer dishId) {
         return findDishIngredientsByDishId(dishId, null);
     }
