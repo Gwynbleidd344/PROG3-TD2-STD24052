@@ -74,28 +74,26 @@ public class Ingredient {
 
     public StockValue getStockValueAt(Instant t) {
         if (stockMovementList == null) return null;
-        Map<Unit, List<StockMovement>> unitSet = stockMovementList.stream()
-                .collect(Collectors.groupingBy(stockMovement -> stockMovement.getValue().getUnit()));
-        if (unitSet.keySet().size() > 1) {
-            throw new RuntimeException("Multiple unit found and not handle for conversion");
-        }
+
+        double totalKg = 0;
 
         List<StockMovement> stockMovements = stockMovementList.stream()
-                .filter(stockMovement -> !stockMovement.getCreationDatetime().isAfter(t))
+                .filter(sm -> !sm.getCreationDatetime().isAfter(t))
                 .toList();
-        double movementIn = stockMovements.stream()
-                .filter(stockMovement -> stockMovement.getType().equals(MovementTypeEnum.IN))
-                .flatMapToDouble(stockMovement -> DoubleStream.of(stockMovement.getValue().getQuantity()))
-                .sum();
-        double movementOut = stockMovements.stream()
-                .filter(stockMovement -> stockMovement.getType().equals(MovementTypeEnum.OUT))
-                .flatMapToDouble(stockMovement -> DoubleStream.of(stockMovement.getValue().getQuantity()))
-                .sum();
+
+        for (StockMovement sm : stockMovements) {
+            double quantityInKg = UnitConverter.convertToKg(this.name, sm.getValue().getQuantity(), sm.getValue().getUnit());
+
+            if (sm.getType() == MovementTypeEnum.IN) {
+                totalKg += quantityInKg;
+            } else {
+                totalKg -= quantityInKg;
+            }
+        }
 
         StockValue stockValue = new StockValue();
-        stockValue.setQuantity(movementIn - movementOut);
-        stockValue.setUnit(unitSet.keySet().stream().findFirst().get());
-
+        stockValue.setQuantity(totalKg);
+        stockValue.setUnit(Unit.KG);
         return stockValue;
     }
 

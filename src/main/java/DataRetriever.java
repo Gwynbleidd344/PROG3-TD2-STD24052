@@ -427,48 +427,74 @@ public class DataRetriever {
         try (Connection conn = new DBConnection().getConnection()) {
             conn.setAutoCommit(false);
 
-            for (DishOrder dishOrder : orderToSave.getDishOrderList()) {
-                Dish dish = findDishById(dishOrder.getDish().getId());
+            try {
+                for (DishOrder dishOrder : orderToSave.getDishOrderList()) {
+                    Dish dish = findDishById(dishOrder.getDish().getId());
 
-                for (DishIngredient di : dish.getDishIngredients()) {
-                    double quantityNeeded = di.getQuantity() * dishOrder.getQuantity();
-                    StockValue currentStock = di.getIngredient().getStockValueAt(Instant.now());
+                    for (DishIngredient di : dish.getDishIngredients()) {
+                        double qtyNeededInOriginalUnit = di.getQuantity() * dishOrder.getQuantity();
 
-                    if (currentStock.getQuantity() < quantityNeeded) {
-                        conn.rollback();
-                        throw new RuntimeException("Stock insuffisant pour l'ingrédient : " + di.getIngredient().getName());
+                        double qtyNeededInKg = UnitConverter.convertToKg(
+                                di.getIngredient().getName(),
+                                qtyNeededInOriginalUnit,
+                                di.getUnit()
+                        );
+
+                        StockValue currentStock = di.getIngredient().getStockValueAt(Instant.now());
+
+                        if (currentStock.getQuantity() < qtyNeededInKg) {
+                            throw new RuntimeException("Stock insuffisant pour " + di.getIngredient().getName() +
+                                    ". Requis: " + qtyNeededInKg + "kg, Dispo: " + currentStock.getQuantity() + "kg");
+                        }
                     }
                 }
-            }
 
-            String sqlOrder = "INSERT INTO \"order\" (reference, creation_datetime) VALUES (?, ?) RETURNING id";
-            int orderId;
-            try (PreparedStatement ps = conn.prepareStatement(sqlOrder)) {
-                ps.setString(1, orderToSave.getReference());
-                ps.setTimestamp(2, Timestamp.from(orderToSave.getCreationDatetime()));
-                ResultSet rs = ps.executeQuery();
-                rs.next();
-                orderId = rs.getInt(1);
-            }
-
-            // 3. INSERTION DES LIGNES DE COMMANDE
-            String sqlDishOrder = "INSERT INTO dish_order (id_order, id_dish, quantity) VALUES (?, ?, ?)";
-            try (PreparedStatement ps = conn.prepareStatement(sqlDishOrder)) {
-                for (DishOrder doItem : orderToSave.getDishOrderList()) {
-                    ps.setInt(1, orderId);
-                    ps.setInt(2, doItem.getDish().getId());
-                    ps.setInt(3, doItem.getQuantity());
-                    ps.addBatch();
+                String sqlOrder = "INSERT INTO \"order\" (reference, creation_datetime) VALUES (?, ?) RETURNING id";
+                int orderId;
+                try (PreparedStatement ps = conn.prepareStatement(sqlOrder)) {
+                    ps.setString(1, orderToSave.getReference());
+                    ps.setTimestamp(2, Timestamp.from(orderToSave.getCreationDatetime()));
+                    ResultSet rs = ps.executeQuery();
+                    rs.next();
+                    orderId = rs.getInt(1);
+                    orderToSave.setId(orderId);
                 }
-                ps.executeBatch();
+
+                String sqlDishOrder = "INSERT INTO dish_order (id_order, id_dish, quantity) VALUES (?, ?, ?)";
+                String sqlStockMove = "INSERT INTO stock_movement (id_ingredient, quantity, unit, type, creation_datetime) VALUES (?, ?, ?::unit, 'OUT', ?)";
+
+                try (PreparedStatement psDish = conn.prepareStatement(sqlDishOrder);
+                     PreparedStatement psStock = conn.prepareStatement(sqlStockMove)) {
+
+                    for (DishOrder doItem : orderToSave.getDishOrderList()) {
+
+                        psDish.setInt(1, orderId);
+                        psDish.setInt(2, doItem.getDish().getId());
+                        psDish.setInt(3, doItem.getQuantity());
+                        psDish.addBatch();
+
+                        Dish dish = findDishById(doItem.getDish().getId());
+                        for (DishIngredient di : dish.getDishIngredients()) {
+                            psStock.setInt(1, di.getIngredient().getId());
+                            psStock.setDouble(2, di.getQuantity() * doItem.getQuantity());
+                            psStock.setString(3, di.getUnit().name());
+                            psStock.setTimestamp(4, Timestamp.from(orderToSave.getCreationDatetime()));
+                            psStock.addBatch();
+                        }
+                    }
+                    psDish.executeBatch();
+                    psStock.executeBatch();
+                }
+
+                conn.commit();
+                return orderToSave;
+
+            } catch (Exception e) {
+                conn.rollback();
+                throw new RuntimeException("Echec de la commande : " + e.getMessage());
             }
-
-            conn.commit();
-            orderToSave.setId(orderId);
-            return orderToSave;
-
         } catch (SQLException e) {
-            throw new RuntimeException("Erreur lors de la sauvegarde : " + e.getMessage());
+            throw new RuntimeException("Erreur de connexion : " + e.getMessage());
         }
     }
 }
