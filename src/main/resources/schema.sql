@@ -76,3 +76,19 @@ create table if not exists dish_order
     id_dish  int references dish (id),
     quantity int
 );
+
+create table if not exists restaurant_table
+(
+    id     serial primary key,
+    number int not null unique
+);
+
+alter table "order"
+    add column id_table           int references restaurant_table (id),
+    add column arrival_datetime   timestamp without time zone,
+    add column departure_datetime timestamp without time zone;
+
+alter table "order"
+    alter column id_table set not null,
+    alter column arrival_datetime set not null,
+    alter column departure_datetime set not null;

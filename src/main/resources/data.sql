@@ -32,3 +32,12 @@ values (1, 1, 1, 0.2, 'KG'),
        (3, 2, 3, 1.0, 'KG'),
        (4, 4, 4, 0.3, 'KG'),
        (5, 4, 5, 0.2, 'KG');
+
+
+insert into restaurant_table (id, number)
+values (1, 1),
+       (2, 2),
+       (3, 3);
+
+insert into "order" (id, reference, creation_datetime, id_table, arrival_datetime, departure_datetime)
+values (100, 'EXISTING_ORD', '2026-01-30 10:00:00', 1, '2026-01-30 12:00:00', '2026-01-30 14:00:00');

@@ -1,4 +1,5 @@
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 
@@ -7,6 +8,9 @@ public class Order {
     private String reference;
     private Instant creationDatetime;
     private List<DishOrder> dishOrderList;
+    private Integer idTable;
+    private LocalDateTime arrivalDatetime;
+    private LocalDateTime departureDatetime;
 
     public Integer getId() {
         return id;
@@ -38,6 +42,27 @@ public class Order {
 
     public void setDishOrderList(List<DishOrder> dishOrderList) {
         this.dishOrderList = dishOrderList;
+    }
+
+    public Integer getIdTable() {
+        return idTable;
+    }
+    public void setIdTable(Integer idTable) {
+        this.idTable = idTable;
+    }
+
+    public LocalDateTime getArrivalDatetime() {
+        return arrivalDatetime;
+    }
+    public void setArrivalDatetime(LocalDateTime arrivalDatetime) {
+        this.arrivalDatetime = arrivalDatetime;
+    }
+
+    public LocalDateTime getDepartureDatetime() {
+        return departureDatetime;
+    }
+    public void setDepartureDatetime(LocalDateTime departureDatetime) {
+        this.departureDatetime = departureDatetime;
     }
 
     @Override

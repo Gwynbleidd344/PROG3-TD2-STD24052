@@ -8,3 +8,5 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON dish_ingredient TO mini_dish_db_manager;
 GRANT SELECT, INSERT, UPDATE, DELETE ON stock_movement TO mini_dish_db_manager;
 GRANT SELECT, INSERT, UPDATE, DELETE ON "order" TO mini_dish_db_manager;
 GRANT SELECT, INSERT, UPDATE, DELETE ON dish_order TO mini_dish_db_manager;
+GRANT SELECT, INSERT, UPDATE, DELETE ON restaurant_table TO mini_dish_db_manager;
+GRANT SELECT, INSERT, UPDATE, DELETE ON stock_movement_id_seq TO mini_dish_db_manager;

@@ -1,5 +1,6 @@
 import java.sql.*;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -11,7 +12,8 @@ public class DataRetriever {
         DBConnection dbConnection = new DBConnection();
         try (Connection connection = dbConnection.getConnection()) {
             PreparedStatement preparedStatement = connection.prepareStatement("""
-                    select id, reference, creation_datetime from "order" where reference like ?""");
+                    select id, reference, creation_datetime, id_table, arrival_datetime, departure_datetime 
+                    from "order" where reference like ?""");
             preparedStatement.setString(1, reference);
             ResultSet resultSet = preparedStatement.executeQuery();
             if (resultSet.next()) {
@@ -21,6 +23,9 @@ public class DataRetriever {
                 order.setReference(resultSet.getString("reference"));
                 order.setCreationDatetime(resultSet.getTimestamp("creation_datetime").toInstant());
                 order.setDishOrderList(findDishOrderByIdOrder(idOrder));
+                order.setIdTable(resultSet.getInt("id_table"));
+                order.setArrivalDatetime(resultSet.getTimestamp("arrival_datetime").toLocalDateTime());
+                order.setDepartureDatetime(resultSet.getTimestamp("departure_datetime").toLocalDateTime());
                 return order;
             }
             throw new RuntimeException("Order not found with reference " + reference);
@@ -352,10 +357,12 @@ public class DataRetriever {
             ResultSet resultSet = preparedStatement.executeQuery();
             while (resultSet.next()) {
                 Ingredient ingredient = new Ingredient();
-                ingredient.setId(resultSet.getInt("id"));
+                int idIng = resultSet.getInt("id");
+                ingredient.setId(idIng);
                 ingredient.setName(resultSet.getString("name"));
                 ingredient.setPrice(resultSet.getDouble("price"));
                 ingredient.setCategory(CategoryEnum.valueOf(resultSet.getString("category")));
+                ingredient.setStockMovementList(findStockMovementsByIngredientId(idIng));
 
                 DishIngredient dishIngredient = new DishIngredient();
                 dishIngredient.setIngredient(ingredient);
@@ -370,7 +377,6 @@ public class DataRetriever {
             throw new RuntimeException(e);
         }
     }
-
 
     private String getSerialSequenceName(Connection conn, String tableName, String columnName)
             throws SQLException {
@@ -428,20 +434,41 @@ public class DataRetriever {
             conn.setAutoCommit(false);
 
             try {
+                String checkSql = """
+                            SELECT count(id) FROM "order" 
+                            WHERE id_table = ? 
+                            AND (arrival_datetime < ? AND departure_datetime > ?)
+                        """;
+                try (PreparedStatement psCheck = conn.prepareStatement(checkSql)) {
+                    psCheck.setInt(1, orderToSave.getIdTable());
+                    psCheck.setTimestamp(2, Timestamp.valueOf(orderToSave.getDepartureDatetime()));
+                    psCheck.setTimestamp(3, Timestamp.valueOf(orderToSave.getArrivalDatetime()));
+                    try (ResultSet rs = psCheck.executeQuery()) {
+                        rs.next();
+                        if (rs.getInt(1) > 0) {
+                            List<Integer> freeTableNumbers = getAvailableTableNumbers(conn, orderToSave.getArrivalDatetime(), orderToSave.getDepartureDatetime());
+                            if (freeTableNumbers.isEmpty()) {
+                                throw new RuntimeException("La table n'est pas disponible. Aucune autre table n'est disponible.");
+                            } else {
+                                String tablesStr = freeTableNumbers.stream()
+                                        .map(n -> "numéro " + n)
+                                        .collect(Collectors.joining(", "));
+                                throw new RuntimeException("La table n'est pas disponible. Les tables " + tablesStr + " sont actuellement libres.");
+                            }
+                        }
+                    }
+                }
+
                 for (DishOrder dishOrder : orderToSave.getDishOrderList()) {
                     Dish dish = findDishById(dishOrder.getDish().getId());
-
                     for (DishIngredient di : dish.getDishIngredients()) {
                         double qtyNeededInOriginalUnit = di.getQuantity() * dishOrder.getQuantity();
-
                         double qtyNeededInKg = UnitConverter.convertToKg(
                                 di.getIngredient().getName(),
                                 qtyNeededInOriginalUnit,
                                 di.getUnit()
                         );
-
                         StockValue currentStock = di.getIngredient().getStockValueAt(Instant.now());
-
                         if (currentStock.getQuantity() < qtyNeededInKg) {
                             throw new RuntimeException("Stock insuffisant pour " + di.getIngredient().getName() +
                                     ". Requis: " + qtyNeededInKg + "kg, Dispo: " + currentStock.getQuantity() + "kg");
@@ -449,15 +476,22 @@ public class DataRetriever {
                     }
                 }
 
-                String sqlOrder = "INSERT INTO \"order\" (reference, creation_datetime) VALUES (?, ?) RETURNING id";
+                String sqlOrder = """
+                            INSERT INTO "order" (reference, creation_datetime, id_table, arrival_datetime, departure_datetime) 
+                            VALUES (?, ?, ?, ?, ?) RETURNING id
+                        """;
                 int orderId;
                 try (PreparedStatement ps = conn.prepareStatement(sqlOrder)) {
                     ps.setString(1, orderToSave.getReference());
                     ps.setTimestamp(2, Timestamp.from(orderToSave.getCreationDatetime()));
-                    ResultSet rs = ps.executeQuery();
-                    rs.next();
-                    orderId = rs.getInt(1);
-                    orderToSave.setId(orderId);
+                    ps.setInt(3, orderToSave.getIdTable());
+                    ps.setTimestamp(4, Timestamp.valueOf(orderToSave.getArrivalDatetime()));
+                    ps.setTimestamp(5, Timestamp.valueOf(orderToSave.getDepartureDatetime()));
+                    try (ResultSet rs = ps.executeQuery()) {
+                        rs.next();
+                        orderId = rs.getInt(1);
+                        orderToSave.setId(orderId);
+                    }
                 }
 
                 String sqlDishOrder = "INSERT INTO dish_order (id_order, id_dish, quantity) VALUES (?, ?, ?)";
@@ -467,7 +501,6 @@ public class DataRetriever {
                      PreparedStatement psStock = conn.prepareStatement(sqlStockMove)) {
 
                     for (DishOrder doItem : orderToSave.getDishOrderList()) {
-
                         psDish.setInt(1, orderId);
                         psDish.setInt(2, doItem.getDish().getId());
                         psDish.setInt(3, doItem.getQuantity());
@@ -491,10 +524,31 @@ public class DataRetriever {
 
             } catch (Exception e) {
                 conn.rollback();
-                throw new RuntimeException("Echec de la commande : " + e.getMessage());
+                throw new RuntimeException(e.getMessage());
             }
         } catch (SQLException e) {
             throw new RuntimeException("Erreur de connexion : " + e.getMessage());
         }
+    }
+
+    private List<Integer> getAvailableTableNumbers(Connection conn, LocalDateTime arrival, LocalDateTime departure) throws SQLException {
+        String sql = """
+                    SELECT rt.number FROM restaurant_table rt
+                    WHERE rt.id NOT IN (
+                        SELECT o.id_table FROM "order" o
+                        WHERE (o.arrival_datetime < ? AND o.departure_datetime > ?)
+                    )
+                """;
+        List<Integer> numbers = new ArrayList<>();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setTimestamp(1, Timestamp.valueOf(departure));
+            ps.setTimestamp(2, Timestamp.valueOf(arrival));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    numbers.add(rs.getInt("number"));
+                }
+            }
+        }
+        return numbers;
     }
 }
