@@ -5,6 +5,16 @@ public class DishOrder {
     private Dish dish;
     private Integer quantity;
 
+    public DishOrder(Integer id, Dish dish, Integer quantity) {
+        this.id = id;
+        this.dish = dish;
+        this.quantity = quantity;
+    }
+
+    public DishOrder() {
+
+    }
+
     public Integer getId() {
         return id;
     }
