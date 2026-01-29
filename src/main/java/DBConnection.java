@@ -4,23 +4,17 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 
 public class DBConnection {
-
     private static final Dotenv dotenv = Dotenv.load();
 
-    public Connection getDBConnection() {
-        String jdbcUrl = dotenv.get("JDBC_URL");
-        String username = dotenv.get("JDBC_USER");
-        String password = dotenv.get("JDBC_PASSWORD");
-
-        if (jdbcUrl == null || username == null || password == null) {
-            throw new RuntimeException("Environment variables JDBC_URL, USERNAME, or PASSWORD are not set in .env file");
-        }
-
+    public Connection getConnection() {
         try {
-            Connection connection = DriverManager.getConnection(jdbcUrl, username, password);
-            return connection;
+            String url = dotenv.get("JDBC_URL");
+            String user = dotenv.get("JDBC_USER");
+            String password = dotenv.get("JDBC_PASSWORD");
+
+            return DriverManager.getConnection(url, user, password);
         } catch (SQLException e) {
-            throw new RuntimeException("Failed to connect to database: " + e.getMessage(), e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -29,7 +23,7 @@ public class DBConnection {
             try {
                 connection.close();
             } catch (SQLException e) {
-                throw new RuntimeException("Failed to close connection: " + e.getMessage(), e);
+                throw new RuntimeException(e);
             }
         }
     }

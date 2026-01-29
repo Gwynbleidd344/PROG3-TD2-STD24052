@@ -1,25 +1,20 @@
 public class StockValue {
-    private double quantity;
-    private UnitType unit;
+    private Double quantity;
+    private Unit unit;
 
-    public StockValue(double quantity, UnitType unit) {
-        this.quantity = quantity;
-        this.unit = unit;
-    }
-
-    public double getQuantity() {
+    public Double getQuantity() {
         return quantity;
     }
 
-    public void setQuantity(double quantity) {
+    public void setQuantity(Double quantity) {
         this.quantity = quantity;
     }
 
-    public UnitType getUnit() {
+    public Unit getUnit() {
         return unit;
     }
 
-    public void setUnit(UnitType unit) {
+    public void setUnit(Unit unit) {
         this.unit = unit;
     }
 

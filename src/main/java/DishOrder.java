@@ -1,22 +1,15 @@
+import java.util.Objects;
+
 public class DishOrder {
-    private int id;
+    private Integer id;
     private Dish dish;
     private Integer quantity;
 
-    public DishOrder() {
-    }
-
-    public DishOrder(int id, Dish dish, Integer quantity) {
-        this.id = id;
-        this.dish = dish;
-        this.quantity = quantity;
-    }
-
-    public int getId() {
+    public Integer getId() {
         return id;
     }
 
-    public void setId(int id) {
+    public void setId(Integer id) {
         this.id = id;
     }
 
@@ -34,5 +27,26 @@ public class DishOrder {
 
     public void setQuantity(Integer quantity) {
         this.quantity = quantity;
+    }
+
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof DishOrder dishOrder)) return false;
+        return Objects.equals(id, dishOrder.id) && Objects.equals(dish, dishOrder.dish) && Objects.equals(quantity, dishOrder.quantity);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, dish, quantity);
+    }
+
+    @Override
+    public String toString() {
+        return "DishOrder{" +
+                "id=" + id +
+                ", dish=" + dish +
+                ", quantity=" + quantity +
+                '}';
     }
 }
