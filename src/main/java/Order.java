@@ -50,12 +50,15 @@ public class Order {
                 '}';
     }
 
-    Double getTotalAmountWithoutVat() {
-        throw new RuntimeException("Not implemented");
+    public Double getTotalAmountWithoutVat() {
+        if (dishOrderList == null) return 0.0;
+        return dishOrderList.stream()
+                .mapToDouble(DishOrder -> DishOrder.getDish().getPrice() * DishOrder.getQuantity())
+                .sum();
     }
 
-    Double getTotalAmountWithVat() {
-        throw new RuntimeException("Not implemented");
+    public Double getTotalAmountWithVat(Double vatRate) {
+        return getTotalAmountWithoutVat() * (1 + vatRate);
     }
 
 

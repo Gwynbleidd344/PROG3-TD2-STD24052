@@ -9,7 +9,6 @@ class DataRetrieverTest {
 
     @Test
     void findDishById_should_return_correct_dish_when_exists() {
-        // ID 1 doit exister dans ta base de données pour ce test
         Integer existingId = 1;
 
         Dish dish = dataRetriever.findDishById(existingId);

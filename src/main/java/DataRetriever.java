@@ -1,4 +1,5 @@
 import java.sql.*;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -419,6 +420,55 @@ public class DataRetriever {
 
         try (PreparedStatement ps = conn.prepareStatement(setValSql)) {
             ps.executeQuery();
+        }
+    }
+
+    public Order saveOrder(Order orderToSave) {
+        try (Connection conn = new DBConnection().getConnection()) {
+            conn.setAutoCommit(false);
+
+            for (DishOrder dishOrder : orderToSave.getDishOrderList()) {
+                Dish dish = findDishById(dishOrder.getDish().getId());
+
+                for (DishIngredient di : dish.getDishIngredients()) {
+                    double quantityNeeded = di.getQuantity() * dishOrder.getQuantity();
+                    StockValue currentStock = di.getIngredient().getStockValueAt(Instant.now());
+
+                    if (currentStock.getQuantity() < quantityNeeded) {
+                        conn.rollback();
+                        throw new RuntimeException("Stock insuffisant pour l'ingrédient : " + di.getIngredient().getName());
+                    }
+                }
+            }
+
+            String sqlOrder = "INSERT INTO \"order\" (reference, creation_datetime) VALUES (?, ?) RETURNING id";
+            int orderId;
+            try (PreparedStatement ps = conn.prepareStatement(sqlOrder)) {
+                ps.setString(1, orderToSave.getReference());
+                ps.setTimestamp(2, Timestamp.from(orderToSave.getCreationDatetime()));
+                ResultSet rs = ps.executeQuery();
+                rs.next();
+                orderId = rs.getInt(1);
+            }
+
+            // 3. INSERTION DES LIGNES DE COMMANDE
+            String sqlDishOrder = "INSERT INTO dish_order (id_order, id_dish, quantity) VALUES (?, ?, ?)";
+            try (PreparedStatement ps = conn.prepareStatement(sqlDishOrder)) {
+                for (DishOrder doItem : orderToSave.getDishOrderList()) {
+                    ps.setInt(1, orderId);
+                    ps.setInt(2, doItem.getDish().getId());
+                    ps.setInt(3, doItem.getQuantity());
+                    ps.addBatch();
+                }
+                ps.executeBatch();
+            }
+
+            conn.commit();
+            orderToSave.setId(orderId);
+            return orderToSave;
+
+        } catch (SQLException e) {
+            throw new RuntimeException("Erreur lors de la sauvegarde : " + e.getMessage());
         }
     }
 }
