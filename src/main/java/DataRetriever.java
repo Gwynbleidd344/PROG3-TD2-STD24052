@@ -6,7 +6,7 @@ import java.util.stream.Collectors;
 
 public class DataRetriever {
 
-    Order findOrderByReference(String reference) {
+    public Order findOrderByReference(String reference) {
         DBConnection dbConnection = new DBConnection();
         try (Connection connection = dbConnection.getConnection()) {
             PreparedStatement preparedStatement = connection.prepareStatement("""
@@ -28,7 +28,7 @@ public class DataRetriever {
         }
     }
 
-    private List<DishOrder> findDishOrderByIdOrder(Integer idOrder) {
+    public List<DishOrder> findDishOrderByIdOrder(Integer idOrder) {
         DBConnection dbConnection = new DBConnection();
         Connection connection = dbConnection.getConnection();
         List<DishOrder> dishOrders = new ArrayList<>();
@@ -54,7 +54,7 @@ public class DataRetriever {
         }
     }
 
-    Dish findDishById(Integer id) {
+    public Dish findDishById(Integer id) {
         DBConnection dbConnection = new DBConnection();
         Connection connection = dbConnection.getConnection();
         try {
@@ -84,7 +84,7 @@ public class DataRetriever {
     }
 
 
-    Ingredient saveIngredient(Ingredient toSave) {
+    public Ingredient saveIngredient(Ingredient toSave) {
         String upsertIngredientSql = """
                     INSERT INTO ingredient (id, name, price, category)
                     VALUES (?, ?, ?, ?::dish_type)
@@ -126,7 +126,7 @@ public class DataRetriever {
         }
     }
 
-    private void insertIngredientStockMovements(Connection conn, Ingredient ingredient) {
+    public void insertIngredientStockMovements(Connection conn, Ingredient ingredient) {
         List<StockMovement> stockMovementList = ingredient.getStockMovementList();
         String sql = """
                 insert into stock_movement(id, id_ingredient, quantity, type, unit, creation_datetime)
@@ -155,7 +155,7 @@ public class DataRetriever {
     }
 
 
-    Ingredient findIngredientById(Integer id) {
+    public Ingredient findIngredientById(Integer id) {
         DBConnection dbConnection = new DBConnection();
         try (Connection connection = dbConnection.getConnection()) {
             PreparedStatement preparedStatement = connection.prepareStatement("select id, name, price, category from ingredient where id = ?;");
@@ -174,7 +174,7 @@ public class DataRetriever {
         }
     }
 
-    List<StockMovement> findStockMovementsByIngredientId(Integer id) {
+    public List<StockMovement> findStockMovementsByIngredientId(Integer id) {
 
         DBConnection dbConnection = new DBConnection();
         Connection connection = dbConnection.getConnection();
@@ -209,7 +209,7 @@ public class DataRetriever {
     }
 
 
-    Dish saveDish(Dish toSave) {
+    public Dish saveDish(Dish toSave) {
         String upsertDishSql = """
                     INSERT INTO dish (id, selling_price, name, dish_type)
                     VALUES (?, ?, ?, ?::dish_type)
@@ -299,7 +299,7 @@ public class DataRetriever {
     }
 
 
-    private void detachIngredients(Connection conn, List<DishIngredient> dishIngredients) {
+    public void detachIngredients(Connection conn, List<DishIngredient> dishIngredients) {
         Map<Integer, List<DishIngredient>> dishIngredientsGroupByDishId = dishIngredients.stream()
                 .collect(Collectors.groupingBy(dishIngredient -> dishIngredient.getDish().getId()));
         dishIngredientsGroupByDishId.forEach((dishId, dishIngredientList) -> {
@@ -313,7 +313,7 @@ public class DataRetriever {
         });
     }
 
-    private void attachIngredients(Connection conn, List<DishIngredient> ingredients)
+    public void attachIngredients(Connection conn, List<DishIngredient> ingredients)
             throws SQLException {
 
         if (ingredients == null || ingredients.isEmpty()) {
@@ -337,7 +337,7 @@ public class DataRetriever {
         }
     }
 
-    private List<DishIngredient> findIngredientByDishId(Integer idDish) {
+    public List<DishIngredient> findIngredientByDishId(Integer idDish) {
         DBConnection dbConnection = new DBConnection();
         Connection connection = dbConnection.getConnection();
         List<DishIngredient> dishIngredients = new ArrayList<>();
@@ -371,7 +371,7 @@ public class DataRetriever {
     }
 
 
-    private String getSerialSequenceName(Connection conn, String tableName, String columnName)
+    public String getSerialSequenceName(Connection conn, String tableName, String columnName)
             throws SQLException {
 
         String sql = "SELECT pg_get_serial_sequence(?, ?)";
@@ -389,7 +389,7 @@ public class DataRetriever {
         return null;
     }
 
-    private int getNextSerialValue(Connection conn, String tableName, String columnName)
+    public int getNextSerialValue(Connection conn, String tableName, String columnName)
             throws SQLException {
 
         String sequenceName = getSerialSequenceName(conn, tableName, columnName);
@@ -411,7 +411,7 @@ public class DataRetriever {
         }
     }
 
-    private void updateSequenceNextValue(Connection conn, String tableName, String columnName, String sequenceName) throws SQLException {
+    public void updateSequenceNextValue(Connection conn, String tableName, String columnName, String sequenceName) throws SQLException {
         String setValSql = String.format(
                 "SELECT setval('%s', (SELECT COALESCE(MAX(%s), 0) FROM %s))",
                 sequenceName, columnName, tableName

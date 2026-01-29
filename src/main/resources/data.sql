@@ -13,17 +13,6 @@ values (1, 'Laitue', 'VEGETABLE', 800.0),
        (4, 'Chocolat ', 'OTHER', 3000.0),
        (5, 'Beurre', 'DAIRY', 2500.0);
 
-
-
-update dish
-set price = 2000.0
-where id = 1;
-
-update dish
-set price = 6000.0
-where id = 2;
-
-
 insert into stock_movement(id, id_ingredient, quantity, type, unit, creation_datetime)
 values (1, 1, 5.0, 'IN', 'KG', '2024-01-05 08:00'),
        (2, 1, 0.2, 'OUT', 'KG', '2024-01-06 12:00'),

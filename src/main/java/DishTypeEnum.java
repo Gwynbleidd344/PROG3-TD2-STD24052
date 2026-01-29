@@ -1,5 +1,5 @@
 public enum DishTypeEnum {
-    START,
+    STARTER,
     MAIN,
     DESSERT
 }
